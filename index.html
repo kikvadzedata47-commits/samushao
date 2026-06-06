@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0f172a" />
+<title>სამუშაო ჟურნალი</title>
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icon-192.png" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="სამუშაო" />
+<script src="./xlsx.full.min.js" defer></script>
+<style>
+  :root{
+    --bg:#0f172a;
+    --card:#1e293b;
+    --card2:#273449;
+    --line:#334155;
+    --text:#f1f5f9;
+    --muted:#94a3b8;
+    --accent:#f97316;
+    --accent2:#fb923c;
+    --green:#25D366;
+    --red:#ef4444;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Noto Sans Georgian","Segoe UI",system-ui,-apple-system,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:0 0 150px 0;
+    font-size:17px;
+  }
+  header{
+    position:sticky;top:0;z-index:5;
+    background:rgba(15,23,42,.92);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+    padding:14px 16px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  header .title{font-size:18px;font-weight:700;}
+  header .date{font-size:13px;color:var(--muted);margin-top:2px;}
+  .gear{
+    background:var(--card2);border:1px solid var(--line);color:var(--text);
+    width:44px;height:44px;border-radius:12px;font-size:20px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  main{padding:16px;display:flex;flex-direction:column;gap:14px;max-width:520px;margin:0 auto;}
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:16px;
+  }
+  .card h2{margin:0 0 12px 0;font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .card h2 .ico{font-size:20px;}
+  .sub{font-size:14px;color:var(--muted);}
+  /* asphalt rows */
+  .aseg{
+    display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;
+    margin-bottom:10px;
+  }
+  .fld label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .fld input{
+    width:100%;height:52px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font-size:18px;text-align:center;
+    padding:0 6px;outline:none;
+  }
+  .fld input:focus{border-color:var(--accent);}
+  .rm{
+    width:44px;height:52px;border-radius:12px;border:1px solid var(--line);
+    background:transparent;color:var(--red);font-size:22px;cursor:pointer;
+  }
+  .segsum{font-size:14px;color:var(--accent2);font-weight:700;text-align:right;margin:-4px 0 10px;}
+  .addbtn{
+    width:100%;height:46px;border-radius:12px;border:1px dashed var(--line);
+    background:transparent;color:var(--muted);font-size:15px;cursor:pointer;font-family:inherit;
+  }
+  /* counter */
+  .counter{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px;}
+  .cbtn{
+    width:64px;height:64px;border-radius:16px;border:none;font-size:30px;font-weight:700;
+    cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;
+  }
+  .cbtn.minus{background:var(--card2);border:1px solid var(--line);color:var(--text);}
+  .cbtn.plus{background:var(--accent);}
+  .cbtn:active{transform:scale(.94);}
+  .cval{flex:1;text-align:center;}
+  .cval .n{font-size:34px;font-weight:800;line-height:1;}
+  .cval .m{font-size:13px;color:var(--muted);margin-top:4px;}
+  .csum{font-size:14px;color:var(--accent2);font-weight:700;text-align:right;margin-top:8px;}
+  .adjinput{
+    width:100%;border:none;background:transparent;color:#fff;
+    font-size:32px;font-weight:800;text-align:center;outline:none;padding:0;
+    -moz-appearance:textfield;
+  }
+  .adjinput::-webkit-outer-spin-button,.adjinput::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .reciprow{font-size:13px;color:var(--muted);margin-bottom:8px;text-align:right;}
+  .reciprow b{color:var(--text);font-weight:700;}
+  textarea{
+    width:100%;min-height:60px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font-size:16px;padding:12px;outline:none;
+    font-family:inherit;resize:vertical;
+  }
+  textarea:focus{border-color:var(--accent);}
+  /* footer total + send */
+  .bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:6;
+    background:rgba(15,23,42,.96);backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+  .barwrap{max-width:520px;margin:0 auto;}
+  .totalrow{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+  .totalrow .lbl{font-size:15px;color:var(--muted);}
+  .totalrow .amt{font-size:32px;font-weight:800;color:#fff;}
+  .actions{display:flex;gap:10px;}
+  .send{
+    flex:1;height:60px;border:none;border-radius:16px;background:var(--green);color:#fff;
+    font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;
+    justify-content:center;gap:8px;font-family:inherit;
+  }
+  .send:active{transform:scale(.98);}
+  .send:disabled{opacity:.45;}
+  .clear{
+    width:60px;height:60px;border-radius:16px;border:1px solid var(--line);
+    background:transparent;color:var(--muted);font-size:22px;cursor:pointer;
+  }
+  /* modal */
+  .overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:20;
+    display:none;align-items:flex-end;justify-content:center;
+  }
+  .overlay.open{display:flex;}
+  .sheet{
+    background:var(--card);width:100%;max-width:520px;border-radius:22px 22px 0 0;
+    padding:18px 16px calc(20px + env(safe-area-inset-bottom));border:1px solid var(--line);
+  }
+  .sheet h3{margin:0 0 4px;font-size:19px;}
+  .sheet p.hint{margin:0 0 16px;font-size:13px;color:var(--muted);}
+  .srow{margin-bottom:14px;}
+  .srow label{display:block;font-size:14px;color:var(--muted);margin-bottom:6px;}
+  .srow input{
+    width:100%;height:52px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card2);color:var(--text);font-size:17px;padding:0 14px;outline:none;
+  }
+  .srow input:focus{border-color:var(--accent);}
+  .saverow{display:flex;gap:10px;margin-top:6px;}
+  .save{
+    flex:1;height:54px;border:none;border-radius:14px;background:var(--accent);color:#fff;
+    font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;
+  }
+  .ghost{
+    height:54px;padding:0 18px;border-radius:14px;border:1px solid var(--line);
+    background:transparent;color:var(--muted);font-size:16px;cursor:pointer;font-family:inherit;
+  }
+  .err{color:var(--red);font-size:13px;margin-top:6px;display:none;}
+  .monthbar{
+    display:block;width:100%;border:none;border-bottom:1px solid var(--line);
+    background:var(--card);color:var(--muted);padding:11px 16px;font-size:14px;
+    font-family:inherit;cursor:pointer;text-align:center;
+  }
+  .monthbar b{color:var(--accent2);font-weight:800;font-size:16px;margin-left:4px;}
+  .monthbar .chev{opacity:.6;margin-left:6px;}
+  .monthlist{max-height:42vh;overflow-y:auto;margin-bottom:8px;}
+  .mrow{display:flex;justify-content:space-between;padding:11px 4px;border-bottom:1px solid var(--line);font-size:15px;}
+  .mrow .d{color:var(--muted);}
+  .mrow .v{font-weight:700;}
+  .monthtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;color:var(--muted);margin:8px 0 14px;}
+  .monthtotal b{font-size:24px;color:#fff;font-weight:800;}
+  .empty{color:var(--muted);text-align:center;padding:20px;font-size:14px;}
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="title">📋 სამუშაო ჟურნალი</div>
+      <div class="date" id="dateLbl">—</div>
+    </div>
+    <button class="gear" id="gearBtn" aria-label="პარამეტრები">⚙️</button>
+  </header>
+
+  <button class="monthbar" id="monthBar">📅 ეს თვე: <b id="monthTotalTop">0 ₾</b><span class="chev">▾</span></button>
+
+  <main>
+    <!-- ASPHALT -->
+    <section class="card">
+      <h2><span class="ico">🛣️</span> ასფალტის გადაჭრა</h2>
+      <div id="asegs"></div>
+      <button class="addbtn" id="addSeg">＋ კიდევ ერთი მონაკვეთი</button>
+    </section>
+
+    <!-- HELPER -->
+    <section class="card">
+      <h2><span class="ico">👷</span> დამხმარე მუშა</h2>
+      <div class="counter">
+        <button class="cbtn minus" data-dec="helper">−</button>
+        <div class="cval">
+          <div class="n" id="helperN">0</div>
+          <div class="m" id="helperRateLbl">თითო 50 ₾</div>
+        </div>
+        <button class="cbtn plus" data-inc="helper">＋</button>
+      </div>
+      <div class="csum" id="helperSum">0 ₾</div>
+    </section>
+
+    <!-- CAR LOADING -->
+    <section class="card">
+      <h2><span class="ico">🚚</span> მანქანის დატვირთვა</h2>
+      <div class="counter">
+        <button class="cbtn minus" data-dec="carload">−</button>
+        <div class="cval">
+          <div class="n" id="carloadN">0</div>
+          <div class="m" id="carRateLbl">თითო 50 ₾</div>
+        </div>
+        <button class="cbtn plus" data-inc="carload">＋</button>
+      </div>
+      <div class="csum" id="carloadSum">0 ₾</div>
+    </section>
+
+    <!-- ADJUSTMENT (±) -->
+    <section class="card">
+      <h2><span class="ico">🔧</span> დამატებითი / გამოკლება <span class="sub">(₾)</span></h2>
+      <div class="counter">
+        <button class="cbtn minus" id="adjDec">−</button>
+        <div class="cval">
+          <input id="adjInput" class="adjinput" type="number" inputmode="numeric" value="0" />
+          <div class="m">＋ ემატება · − აკლდება</div>
+        </div>
+        <button class="cbtn plus" id="adjInc">＋</button>
+      </div>
+      <div class="csum" id="adjSum">0 ₾</div>
+    </section>
+
+    <!-- NOTE -->
+    <section class="card">
+      <h2><span class="ico">📝</span> შენიშვნა <span class="sub">(არასავალდებულო)</span></h2>
+      <textarea id="note" placeholder="მაგ: ობიექტი, მისამართი..."></textarea>
+    </section>
+  </main>
+
+  <!-- BOTTOM BAR -->
+  <div class="bar">
+    <div class="barwrap">
+      <div class="totalrow">
+        <span class="lbl">სულ დღეს</span>
+        <span class="amt" id="grand">0 ₾</span>
+      </div>
+      <div class="reciprow" id="recipRow">📲 Viber → <b id="recipName"></b></div>
+      <div class="actions">
+        <button class="send" id="sendBtn">📤 გაგზავნა მენეჯერთან</button>
+        <button class="clear" id="clearBtn" aria-label="გასუფთავება">🗑️</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS SHEET -->
+  <div class="overlay" id="overlay">
+    <div class="sheet">
+      <h3>⚙️ პარამეტრები</h3>
+      <p class="hint">ერთხელ შეავსეთ — შემდეგ აპი დაიმახსოვრებს.</p>
+      <div class="srow">
+        <label>მენეჯერის სახელი (Viber-ში მიმღები)</label>
+        <input id="setManagerName" type="text" placeholder="მაგ: ბაჩი ბერსენაძე" />
+      </div>
+      <div class="srow">
+        <label>მუშის სახელი (რეპორტში გამოჩნდება)</label>
+        <input id="setWorker" type="text" placeholder="მაგ: გიორგი" />
+      </div>
+      <div class="srow">
+        <label>დამხმარე მუშის ფასი (₾)</label>
+        <input id="setHelperRate" type="number" inputmode="numeric" placeholder="50" />
+      </div>
+      <div class="srow">
+        <label>მანქანის დატვირთვის ფასი (₾)</label>
+        <input id="setCarRate" type="number" inputmode="numeric" placeholder="50" />
+      </div>
+      <div class="saverow">
+        <button class="save" id="saveSet">შენახვა</button>
+        <button class="ghost" id="closeSet">დახურვა</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MONTH SHEET -->
+  <div class="overlay" id="monthOverlay">
+    <div class="sheet">
+      <h3 id="monthTitle">📅 თვის ხელფასი</h3>
+      <p class="hint">ამ თვის ყველა დღის ჯამი — სრული ხელფასი.</p>
+      <div id="monthList" class="monthlist"></div>
+      <div class="monthtotal"><span>სულ თვეში <span id="monthCount" class="sub"></span></span> <b id="monthGrand">0 ₾</b></div>
+      <div class="saverow">
+        <button class="save" id="sendMonth" style="background:var(--green)">📤 გაგზავნა მენეჯერთან</button>
+        <button class="ghost" id="closeMonth">დახურვა</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  var LS_STATE="samushao_state", LS_SET="samushao_settings", LS_LASTP="samushao_lastprice", LS_HIST="samushao_history";
+
+  function isoToday(){
+    var d=new Date();
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function displayDate(iso){
+    var p=iso.split("-");
+    return p[2]+"."+p[1]+"."+p[0];
+  }
+  function fmt(n){
+    n=Math.round((n+Number.EPSILON)*100)/100;
+    if(Number.isInteger(n)) return String(n);
+    return String(n).replace(".",",");
+  }
+  function load(key,def){
+    try{var v=localStorage.getItem(key);return v?JSON.parse(v):def;}catch(e){return def;}
+  }
+  function lastPrice(){
+    try{var v=localStorage.getItem(LS_LASTP);return v?v:"";}catch(e){return "";}
+  }
+
+  // settings
+  var settings=load(LS_SET,{manager:"",managerName:"ბაჩი ბერსენაძე",worker:"",helperRate:50,carRate:50});
+  if(!settings.managerName) settings.managerName="ბაჩი ბერსენაძე";
+  if(typeof settings.helperRate!=="number") settings.helperRate=parseFloat(settings.helperRate)||50;
+  if(typeof settings.carRate!=="number") settings.carRate=parseFloat(settings.carRate)||50;
+
+  // state (reset on a new day)
+  var state=load(LS_STATE,null);
+  var today=isoToday();
+  if(!state || state.date!==today){
+    state={date:today, asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, adjust:0, note:""};
+  }
+  if(!state.asphalt || !state.asphalt.length) state.asphalt=[{m:"",p:lastPrice()}];
+  if(typeof state.adjust!=="number") state.adjust=0;
+
+  function saveState(){ try{localStorage.setItem(LS_STATE,JSON.stringify(state));}catch(e){} }
+  function saveSettings(){ try{localStorage.setItem(LS_SET,JSON.stringify(settings));}catch(e){} }
+
+  // monthly history: { "YYYY-MM-DD": dayTotal }
+  var history=load(LS_HIST,{}); if(!history||typeof history!=="object") history={};
+  function saveHistory(){ try{localStorage.setItem(LS_HIST,JSON.stringify(history));}catch(e){} }
+  var MONTHS=["იანვარი","თებერვალი","მარტი","აპრილი","მაისი","ივნისი","ივლისი","აგვისტო","სექტემბერი","ოქტომბერი","ნოემბერი","დეკემბერი"];
+  function monthName(iso){ var p=iso.split("-"); return MONTHS[parseInt(p[1],10)-1]+" "+p[0]; }
+  function curYm(){ return state.date.slice(0,7); }
+  function monthTotal(ymv){ var t=0; Object.keys(history).forEach(function(k){ if(k.indexOf(ymv)===0) t+=history[k]; }); return t; }
+  function recordToday(){ if(hasContent()) history[state.date]=grandTotal(); else delete history[state.date]; saveHistory(); }
+
+  // ---- calculations ----
+  function asphaltTotal(){
+    var t=0;
+    state.asphalt.forEach(function(s){
+      var m=parseFloat(s.m), p=parseFloat(s.p);
+      if(m>0 && p>0) t+=m*p;
+    });
+    return t;
+  }
+  function helperTotal(){ return state.helper*settings.helperRate; }
+  function carTotal(){ return state.carload*settings.carRate; }
+  function grandTotal(){ return asphaltTotal()+helperTotal()+carTotal()+(state.adjust||0); }
+  function hasContent(){
+    var anyA=false; state.asphalt.forEach(function(s){ if(parseFloat(s.m)>0&&parseFloat(s.p)>0) anyA=true; });
+    return anyA || state.helper>0 || state.carload>0 || (state.adjust||0)!==0;
+  }
+
+  // ---- render ----
+  var asegs=document.getElementById("asegs");
+  function renderAsphalt(){
+    asegs.innerHTML="";
+    state.asphalt.forEach(function(s,i){
+      var row=document.createElement("div");
+      var m=parseFloat(s.m), p=parseFloat(s.p);
+      var sub=(m>0&&p>0)?(m*p):0;
+      row.className="aseg";
+      row.innerHTML=
+        '<div class="fld"><label>მეტრი</label><input type="number" inputmode="decimal" placeholder="0" data-m="'+i+'" value="'+(s.m||"")+'"></div>'+
+        '<div class="fld"><label>ფასი/მ (₾)</label><input type="number" inputmode="decimal" placeholder="0" data-p="'+i+'" value="'+(s.p||"")+'"></div>'+
+        (state.asphalt.length>1?'<button class="rm" data-rm="'+i+'">✕</button>':'<div style="width:0"></div>');
+      asegs.appendChild(row);
+      var sumEl=document.createElement("div");
+      sumEl.className="segsum";
+      sumEl.textContent= sub>0 ? ("= "+fmt(sub)+" ₾") : "";
+      asegs.appendChild(sumEl);
+    });
+    // bind
+    asegs.querySelectorAll("input[data-m]").forEach(function(el){
+      el.addEventListener("input",function(){ state.asphalt[+el.dataset.m].m=el.value; refresh(false); });
+    });
+    asegs.querySelectorAll("input[data-p]").forEach(function(el){
+      el.addEventListener("input",function(){ state.asphalt[+el.dataset.p].p=el.value; refresh(false); });
+    });
+    asegs.querySelectorAll("[data-rm]").forEach(function(el){
+      el.addEventListener("click",function(){ state.asphalt.splice(+el.dataset.rm,1); refresh(true); });
+    });
+  }
+
+  function refresh(rerenderAsphalt){
+    if(rerenderAsphalt) renderAsphalt();
+    else {
+      // update only seg sums without losing focus
+      var sums=asegs.querySelectorAll(".segsum");
+      state.asphalt.forEach(function(s,i){
+        var m=parseFloat(s.m),p=parseFloat(s.p),sub=(m>0&&p>0)?m*p:0;
+        if(sums[i]) sums[i].textContent= sub>0?("= "+fmt(sub)+" ₾"):"";
+      });
+    }
+    document.getElementById("helperN").textContent=state.helper;
+    document.getElementById("carloadN").textContent=state.carload;
+    document.getElementById("helperRateLbl").textContent="თითო "+fmt(settings.helperRate)+" ₾";
+    document.getElementById("carRateLbl").textContent="თითო "+fmt(settings.carRate)+" ₾";
+    document.getElementById("helperSum").textContent=fmt(helperTotal())+" ₾";
+    document.getElementById("carloadSum").textContent=fmt(carTotal())+" ₾";
+    var a=state.adjust||0;
+    var adjSumEl=document.getElementById("adjSum");
+    adjSumEl.textContent=(a>0?"+":"")+fmt(a)+" ₾";
+    adjSumEl.style.color=a<0?"var(--red)":(a>0?"var(--green)":"var(--muted)");
+    document.getElementById("recipName").textContent=settings.managerName||"";
+    document.getElementById("recipRow").style.display=settings.managerName?"block":"none";
+    document.getElementById("grand").textContent=fmt(grandTotal())+" ₾";
+    document.getElementById("sendBtn").disabled = !hasContent();
+    saveState();
+    recordToday();
+    document.getElementById("monthTotalTop").textContent=fmt(monthTotal(curYm()))+" ₾";
+  }
+
+  // counters
+  document.querySelectorAll("[data-inc]").forEach(function(b){
+    b.addEventListener("click",function(){ state[b.dataset.inc]++; refresh(false); });
+  });
+  document.querySelectorAll("[data-dec]").forEach(function(b){
+    b.addEventListener("click",function(){ var k=b.dataset.dec; if(state[k]>0) state[k]--; refresh(false); });
+  });
+  document.getElementById("addSeg").addEventListener("click",function(){
+    state.asphalt.push({m:"",p:lastPrice()}); refresh(true);
+  });
+  document.getElementById("note").addEventListener("input",function(e){ state.note=e.target.value; saveState(); });
+
+  // adjustment ±
+  var adjInput=document.getElementById("adjInput");
+  adjInput.addEventListener("input",function(){ state.adjust=parseFloat(adjInput.value)||0; refresh(false); });
+  document.getElementById("adjInc").addEventListener("click",function(){ state.adjust=(parseFloat(adjInput.value)||0)+10; adjInput.value=state.adjust; refresh(false); });
+  document.getElementById("adjDec").addEventListener("click",function(){ state.adjust=(parseFloat(adjInput.value)||0)-10; adjInput.value=state.adjust; refresh(false); });
+
+  // clear
+  document.getElementById("clearBtn").addEventListener("click",function(){
+    if(confirm("დღის მონაცემების გასუფთავება?")){
+      state={date:isoToday(), asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, adjust:0, note:""};
+      document.getElementById("note").value="";
+      document.getElementById("adjInput").value="0";
+      refresh(true);
+    }
+  });
+
+  // ---- report + WhatsApp ----
+  function buildReport(){
+    var L=[];
+    L.push("📋 დღის რეპორტი — "+displayDate(state.date));
+    if(settings.worker) L.push("👷 "+settings.worker);
+    L.push("");
+    var any=false;
+    state.asphalt.forEach(function(s){
+      var m=parseFloat(s.m),p=parseFloat(s.p);
+      if(m>0&&p>0){ L.push("• ასფალტის გადაჭრა: "+fmt(m)+" მ × "+fmt(p)+" ₾ = "+fmt(m*p)+" ₾"); any=true; }
+    });
+    if(state.helper>0){ L.push("• დამხმარე მუშა: "+state.helper+" × "+fmt(settings.helperRate)+" ₾ = "+fmt(helperTotal())+" ₾"); any=true; }
+    if(state.carload>0){ L.push("• მანქანის დატვირთვა: "+state.carload+" × "+fmt(settings.carRate)+" ₾ = "+fmt(carTotal())+" ₾"); any=true; }
+    if(state.adjust>0){ L.push("➕ დამატებითი: +"+fmt(state.adjust)+" ₾"); any=true; }
+    else if(state.adjust<0){ L.push("➖ გამოკლება: "+fmt(state.adjust)+" ₾"); any=true; }
+    L.push("");
+    L.push("💰 სულ: "+fmt(grandTotal())+" ₾");
+    if(state.note && state.note.trim()){ L.push(""); L.push("📝 "+state.note.trim()); }
+    return L.join("\n");
+  }
+
+  // build an .xlsx from a 2D array and share it (Viber etc.) or download as fallback
+  function shareXlsx(filename, sheetName, aoa, caption){
+    if(typeof XLSX==="undefined"){ alert("Excel-ბიბლიოთეკა ვერ ჩაიტვირთა. შეამოწმეთ ინტერნეტი და სცადეთ თავიდან."); return; }
+    var wb=XLSX.utils.book_new();
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"]=[{wch:22},{wch:20},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    var out=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+    var blob=new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    var file=new File([blob], filename, {type:blob.type});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file], title:caption, text:caption}).catch(function(){});
+    } else {
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement("a"); a.href=url; a.download=filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); },4000);
+      alert("ფაილი ჩამოიტვირთა ✅\n\nგახსენით Viber → "+(settings.managerName||"მენეჯერი")+"-ის ჩატი → 📎 → მიამაგრეთ ეს ფაილი.");
+    }
+  }
+
+  document.getElementById("sendBtn").addEventListener("click",function(){
+    if(!hasContent()){ alert("ჯერ არაფერია შეყვანილი."); return; }
+    var lp=""; state.asphalt.forEach(function(s){ if(parseFloat(s.p)>0) lp=s.p; });
+    if(lp) try{localStorage.setItem(LS_LASTP,lp);}catch(e){}
+    var aoa=[];
+    aoa.push(["დღის რეპორტი", displayDate(state.date)]);
+    if(settings.worker) aoa.push(["მუშა", settings.worker]);
+    if(settings.managerName) aoa.push(["მენეჯერი", settings.managerName]);
+    aoa.push([]);
+    aoa.push(["სამუშაო","დეტალი","თანხა (₾)"]);
+    state.asphalt.forEach(function(s){ var m=parseFloat(s.m),p=parseFloat(s.p); if(m>0&&p>0) aoa.push(["ასფალტის გადაჭრა", fmt(m)+" მ × "+fmt(p)+" ₾", m*p]); });
+    if(state.helper>0) aoa.push(["დამხმარე მუშა", state.helper+" × "+fmt(settings.helperRate)+" ₾", helperTotal()]);
+    if(state.carload>0) aoa.push(["მანქანის დატვირთვა", state.carload+" × "+fmt(settings.carRate)+" ₾", carTotal()]);
+    if(state.adjust>0) aoa.push(["დამატებითი","", state.adjust]);
+    else if(state.adjust<0) aoa.push(["გამოკლება","", state.adjust]);
+    if(state.note && state.note.trim()) aoa.push(["შენიშვნა", state.note.trim()]);
+    aoa.push([]);
+    aoa.push(["სულ","", grandTotal()]);
+    shareXlsx("reporti_"+state.date+".xlsx", "დღის რეპორტი", aoa,
+      "დღის რეპორტი — "+displayDate(state.date)+" · სულ "+fmt(grandTotal())+" ₾");
+  });
+
+  // ---- settings sheet ----
+  var overlay=document.getElementById("overlay");
+  function openSettings(){
+    document.getElementById("setManagerName").value=settings.managerName||"";
+    document.getElementById("setWorker").value=settings.worker||"";
+    document.getElementById("setHelperRate").value=settings.helperRate;
+    document.getElementById("setCarRate").value=settings.carRate;
+    overlay.classList.add("open");
+  }
+  function closeSettings(){ overlay.classList.remove("open"); }
+  document.getElementById("gearBtn").addEventListener("click",function(){ openSettings(); });
+  document.getElementById("closeSet").addEventListener("click",closeSettings);
+  overlay.addEventListener("click",function(e){ if(e.target===overlay) closeSettings(); });
+  document.getElementById("saveSet").addEventListener("click",function(){
+    settings.managerName=document.getElementById("setManagerName").value.trim();
+    settings.worker=document.getElementById("setWorker").value.trim();
+    settings.helperRate=parseFloat(document.getElementById("setHelperRate").value)||50;
+    settings.carRate=parseFloat(document.getElementById("setCarRate").value)||50;
+    saveSettings();
+    closeSettings();
+    refresh(false);
+  });
+
+  // ---- month sheet ----
+  var monthOverlay=document.getElementById("monthOverlay");
+  function renderMonth(){
+    var ymv=curYm();
+    document.getElementById("monthTitle").textContent="📅 თვის ხელფასი — "+monthName(state.date);
+    var keys=Object.keys(history).filter(function(k){return k.indexOf(ymv)===0;}).sort();
+    var box=document.getElementById("monthList"); box.innerHTML="";
+    if(!keys.length){ box.innerHTML='<div class="empty">ამ თვეში ჯერ არაფერია ჩაწერილი.</div>'; }
+    else keys.forEach(function(k){
+      var p=k.split("-");
+      var row=document.createElement("div"); row.className="mrow";
+      row.innerHTML='<span class="d">'+p[2]+"."+p[1]+'</span><span class="v">'+fmt(history[k])+' ₾</span>';
+      box.appendChild(row);
+    });
+    document.getElementById("monthGrand").textContent=fmt(monthTotal(ymv))+" ₾";
+    document.getElementById("monthCount").textContent=keys.length?("("+keys.length+" დღე)"):"";
+  }
+  function buildMonthReport(){
+    var ymv=curYm();
+    var keys=Object.keys(history).filter(function(k){return k.indexOf(ymv)===0;}).sort();
+    var L=[]; L.push("📅 თვის ხელფასი — "+monthName(state.date));
+    if(settings.worker) L.push("👷 "+settings.worker); L.push("");
+    keys.forEach(function(k){ var p=k.split("-"); L.push(p[2]+"."+p[1]+" — "+fmt(history[k])+" ₾"); });
+    L.push(""); L.push("💰 სულ თვეში: "+fmt(monthTotal(ymv))+" ₾");
+    L.push("("+keys.length+" სამუშაო დღე)");
+    return L.join("\n");
+  }
+  function openMonth(){ renderMonth(); monthOverlay.classList.add("open"); }
+  function closeMonth(){ monthOverlay.classList.remove("open"); }
+  document.getElementById("monthBar").addEventListener("click",openMonth);
+  document.getElementById("closeMonth").addEventListener("click",closeMonth);
+  monthOverlay.addEventListener("click",function(e){ if(e.target===monthOverlay) closeMonth(); });
+  document.getElementById("sendMonth").addEventListener("click",function(){
+    var ymv=curYm();
+    var keys=Object.keys(history).filter(function(k){return k.indexOf(ymv)===0;}).sort();
+    if(!keys.length){ alert("ამ თვეში ჯერ არაფერია ჩაწერილი."); return; }
+    var aoa=[];
+    aoa.push(["თვის ხელფასი", monthName(state.date)]);
+    if(settings.worker) aoa.push(["მუშა", settings.worker]);
+    if(settings.managerName) aoa.push(["მენეჯერი", settings.managerName]);
+    aoa.push([]);
+    aoa.push(["თარიღი","თანხა (₾)"]);
+    keys.forEach(function(k){ var p=k.split("-"); aoa.push([p[2]+"."+p[1], history[k]]); });
+    aoa.push([]);
+    aoa.push(["სულ თვეში", monthTotal(ymv)]);
+    aoa.push(["სამუშაო დღე", keys.length]);
+    shareXlsx("xelfasi_"+ymv+".xlsx", "თვის ხელფასი", aoa,
+      "თვის ხელფასი — "+monthName(state.date)+" · სულ "+fmt(monthTotal(ymv))+" ₾");
+  });
+
+  // ---- init ----
+  document.getElementById("dateLbl").textContent=displayDate(state.date);
+  document.getElementById("note").value=state.note||"";
+  document.getElementById("adjInput").value=String(state.adjust||0);
+  renderAsphalt();
+  refresh(false);
+})();
+</script>
+<script>
+if("serviceWorker" in navigator){ window.addEventListener("load", function(){ navigator.serviceWorker.register("./sw.js").catch(function(){}); }); }
+</script>
+</body>
+</html>
