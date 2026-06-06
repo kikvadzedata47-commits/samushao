@@ -425,7 +425,7 @@
     document.getElementById("recipName").textContent=settings.managerName||"";
     document.getElementById("recipRow").style.display=settings.managerName?"block":"none";
     document.getElementById("grand").textContent=fmt(grandTotal())+" ₾";
-    document.getElementById("sendBtn").disabled = !hasContent();
+    document.getElementById("sendBtn").disabled = false;
     saveState();
     recordToday();
     document.getElementById("monthTotalTop").textContent=fmt(monthTotal(curYm()))+" ₾";
@@ -480,24 +480,41 @@
     return L.join("\n");
   }
 
-  // build an .xlsx from a 2D array and share it (Viber etc.) or download as fallback
+  // build an .xlsx from a 2D array and share it (Viber etc.) or download as fallback.
+  // ALWAYS gives feedback: share → if that fails for any reason → download → if THAT fails → alert.
   function shareXlsx(filename, sheetName, aoa, caption){
-    if(typeof XLSX==="undefined"){ alert("Excel-ბიბლიოთეკა ვერ ჩაიტვირთა. შეამოწმეთ ინტერნეტი და სცადეთ თავიდან."); return; }
-    var wb=XLSX.utils.book_new();
-    var ws=XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"]=[{wch:22},{wch:20},{wch:12}];
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    var out=XLSX.write(wb,{bookType:"xlsx",type:"array"});
-    var blob=new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-    var file=new File([blob], filename, {type:blob.type});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      navigator.share({files:[file], title:caption, text:caption}).catch(function(){});
-    } else {
-      var url=URL.createObjectURL(blob);
-      var a=document.createElement("a"); a.href=url; a.download=filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(function(){ URL.revokeObjectURL(url); },4000);
-      alert("ფაილი ჩამოიტვირთა ✅\n\nგახსენით Viber → "+(settings.managerName||"მენეჯერი")+"-ის ჩატი → 📎 → მიამაგრეთ ეს ფაილი.");
+    try{
+      if(typeof XLSX==="undefined"){ alert("Excel ჯერ არ ჩაიტვირთა. გახსენით აპი ინტერნეტთან ერთხელ, მერე უკვე ოფლაინაც იმუშავებს."); return; }
+      var wb=XLSX.utils.book_new();
+      var ws=XLSX.utils.aoa_to_sheet(aoa);
+      ws["!cols"]=[{wch:22},{wch:20},{wch:12}];
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      var out=XLSX.write(wb,{bookType:"xlsx",type:"array"});
+      var blob=new Blob([out],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+
+      function download(){
+        try{
+          var url=URL.createObjectURL(blob);
+          var a=document.createElement("a"); a.href=url; a.download=filename;
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function(){ URL.revokeObjectURL(url); },5000);
+          alert("✅ ფაილი ჩამოიტვირთა: "+filename+"\n\nგახსენით Viber → "+(settings.managerName||"მენეჯერი")+"-ის ჩატი → 📎 (მიმაგრება) → ფაილები → აირჩიეთ ეს ფაილი.");
+        }catch(e){ alert("ფაილი ვერ შეინახა: "+(e&&e.message?e.message:e)); }
+      }
+
+      var file=null;
+      try{ file=new File([blob], filename, {type:blob.type}); }catch(e){ file=null; }
+
+      if(file && navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:caption, text:caption}).then(function(){}, function(err){
+          if(err && err.name==="AbortError") return;   // user closed the share sheet on purpose
+          download();                                   // share failed → give them the file instead
+        });
+      } else {
+        download();
+      }
+    }catch(e){
+      alert("გაგზავნა ვერ მოხერხდა: "+(e&&e.message?e.message:e)+"\nსცადეთ თავიდან ან მომწერეთ ეს ტექსტი.");
     }
   }
 
