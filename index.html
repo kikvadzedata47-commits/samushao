@@ -224,6 +224,20 @@
       <div class="csum" id="carloadSum">0 ₾</div>
     </section>
 
+    <!-- CUSTOM SERVICE (fixed price, name + rate set in settings) -->
+    <section class="card" id="customCard">
+      <h2><span class="ico">🛠️</span> <span id="customTitle">სატკეპნი</span></h2>
+      <div class="counter">
+        <button class="cbtn minus" data-dec="custom">−</button>
+        <div class="cval">
+          <div class="n" id="customN">0</div>
+          <div class="m" id="customRateLbl">თითო 50 ₾</div>
+        </div>
+        <button class="cbtn plus" data-inc="custom">＋</button>
+      </div>
+      <div class="csum" id="customSum">0 ₾</div>
+    </section>
+
     <!-- ADJUSTMENT (±) -->
     <section class="card">
       <h2><span class="ico">🔧</span> დამატებითი / გამოკლება <span class="sub">(₾)</span></h2>
@@ -281,6 +295,14 @@
         <label>მანქანის დატვირთვის ფასი (₾)</label>
         <input id="setCarRate" type="number" inputmode="numeric" placeholder="50" />
       </div>
+      <div class="srow">
+        <label>დამატებითი მომსახურების სახელი (ცარიელი = დამალვა)</label>
+        <input id="setCustomName" type="text" placeholder="მაგ: სატკეპნი" />
+      </div>
+      <div class="srow">
+        <label>მისი ფასი (₾)</label>
+        <input id="setCustomRate" type="number" inputmode="numeric" placeholder="50" />
+      </div>
       <div class="saverow">
         <button class="save" id="saveSet">შენახვა</button>
         <button class="ghost" id="closeSet">დახურვა</button>
@@ -328,19 +350,22 @@
   }
 
   // settings
-  var settings=load(LS_SET,{manager:"",managerName:"ბაჩი ბერსენაძე",worker:"",helperRate:50,carRate:50});
+  var settings=load(LS_SET,{manager:"",managerName:"ბაჩი ბერსენაძე",worker:"",helperRate:50,carRate:50,customName:"სატკეპნი",customRate:50});
   if(!settings.managerName) settings.managerName="ბაჩი ბერსენაძე";
   if(typeof settings.helperRate!=="number") settings.helperRate=parseFloat(settings.helperRate)||50;
   if(typeof settings.carRate!=="number") settings.carRate=parseFloat(settings.carRate)||50;
+  if(typeof settings.customName!=="string") settings.customName="სატკეპნი";
+  if(typeof settings.customRate!=="number") settings.customRate=parseFloat(settings.customRate)||50;
 
   // state (reset on a new day)
   var state=load(LS_STATE,null);
   var today=isoToday();
   if(!state || state.date!==today){
-    state={date:today, asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, adjust:0, note:""};
+    state={date:today, asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, custom:0, adjust:0, note:""};
   }
   if(!state.asphalt || !state.asphalt.length) state.asphalt=[{m:"",p:lastPrice()}];
   if(typeof state.adjust!=="number") state.adjust=0;
+  if(typeof state.custom!=="number") state.custom=0;
 
   function saveState(){ try{localStorage.setItem(LS_STATE,JSON.stringify(state));}catch(e){} }
   function saveSettings(){ try{localStorage.setItem(LS_SET,JSON.stringify(settings));}catch(e){} }
@@ -365,10 +390,11 @@
   }
   function helperTotal(){ return state.helper*settings.helperRate; }
   function carTotal(){ return state.carload*settings.carRate; }
-  function grandTotal(){ return asphaltTotal()+helperTotal()+carTotal()+(state.adjust||0); }
+  function customTotal(){ return settings.customName ? state.custom*settings.customRate : 0; }
+  function grandTotal(){ return asphaltTotal()+helperTotal()+carTotal()+customTotal()+(state.adjust||0); }
   function hasContent(){
     var anyA=false; state.asphalt.forEach(function(s){ if(parseFloat(s.m)>0&&parseFloat(s.p)>0) anyA=true; });
-    return anyA || state.helper>0 || state.carload>0 || (state.adjust||0)!==0;
+    return anyA || state.helper>0 || state.carload>0 || (!!settings.customName && state.custom>0) || (state.adjust||0)!==0;
   }
 
   // ---- render ----
@@ -418,6 +444,11 @@
     document.getElementById("carRateLbl").textContent="თითო "+fmt(settings.carRate)+" ₾";
     document.getElementById("helperSum").textContent=fmt(helperTotal())+" ₾";
     document.getElementById("carloadSum").textContent=fmt(carTotal())+" ₾";
+    document.getElementById("customN").textContent=state.custom;
+    document.getElementById("customTitle").textContent=settings.customName||"სხვა მომსახურება";
+    document.getElementById("customRateLbl").textContent="თითო "+fmt(settings.customRate)+" ₾";
+    document.getElementById("customSum").textContent=fmt(customTotal())+" ₾";
+    document.getElementById("customCard").style.display=settings.customName?"":"none";
     var a=state.adjust||0;
     var adjSumEl=document.getElementById("adjSum");
     adjSumEl.textContent=(a>0?"+":"")+fmt(a)+" ₾";
@@ -452,7 +483,7 @@
   // clear
   document.getElementById("clearBtn").addEventListener("click",function(){
     if(confirm("დღის მონაცემების გასუფთავება?")){
-      state={date:isoToday(), asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, adjust:0, note:""};
+      state={date:isoToday(), asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, custom:0, adjust:0, note:""};
       document.getElementById("note").value="";
       document.getElementById("adjInput").value="0";
       refresh(true);
@@ -531,6 +562,7 @@
     state.asphalt.forEach(function(s){ var m=parseFloat(s.m),p=parseFloat(s.p); if(m>0&&p>0) aoa.push(["ასფალტის გადაჭრა", fmt(m)+" მ × "+fmt(p)+" ₾", m*p]); });
     if(state.helper>0) aoa.push(["დამხმარე მუშა", state.helper+" × "+fmt(settings.helperRate)+" ₾", helperTotal()]);
     if(state.carload>0) aoa.push(["მანქანის დატვირთვა", state.carload+" × "+fmt(settings.carRate)+" ₾", carTotal()]);
+    if(state.custom>0 && settings.customName) aoa.push([settings.customName, state.custom+" × "+fmt(settings.customRate)+" ₾", customTotal()]);
     if(state.adjust>0) aoa.push(["დამატებითი","", state.adjust]);
     else if(state.adjust<0) aoa.push(["გამოკლება","", state.adjust]);
     if(state.note && state.note.trim()) aoa.push(["შენიშვნა", state.note.trim()]);
@@ -547,6 +579,8 @@
     document.getElementById("setWorker").value=settings.worker||"";
     document.getElementById("setHelperRate").value=settings.helperRate;
     document.getElementById("setCarRate").value=settings.carRate;
+    document.getElementById("setCustomName").value=settings.customName||"";
+    document.getElementById("setCustomRate").value=settings.customRate;
     overlay.classList.add("open");
   }
   function closeSettings(){ overlay.classList.remove("open"); }
@@ -558,6 +592,8 @@
     settings.worker=document.getElementById("setWorker").value.trim();
     settings.helperRate=parseFloat(document.getElementById("setHelperRate").value)||50;
     settings.carRate=parseFloat(document.getElementById("setCarRate").value)||50;
+    settings.customName=document.getElementById("setCustomName").value.trim();
+    settings.customRate=parseFloat(document.getElementById("setCustomRate").value)||50;
     saveSettings();
     closeSettings();
     refresh(false);
