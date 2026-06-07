@@ -226,12 +226,9 @@
 
     <!-- CUSTOM SERVICE (fixed price, name + rate set in settings) -->
     <section class="card" id="customCard">
-      <h2><span class="ico">🛠️</span> <span id="customTitle">სატკეპნი</span> <span class="sub" id="customRateLbl">× 50 ₾/მ</span></h2>
-      <div class="fld">
-        <label>მეტრი</label>
-        <input id="customM" type="number" inputmode="decimal" placeholder="0" value="" />
-      </div>
-      <div class="csum" id="customSum">0 ₾</div>
+      <h2><span class="ico">🛠️</span> <span id="customTitle">სატკეპნი</span></h2>
+      <div id="csegs"></div>
+      <button class="addbtn" id="addCseg">＋ კიდევ ერთი მონაკვეთი</button>
     </section>
 
     <!-- ADJUSTMENT (±) -->
@@ -296,7 +293,7 @@
         <input id="setCustomName" type="text" placeholder="მაგ: სატკეპნი" />
       </div>
       <div class="srow">
-        <label>მისი ფასი 1 მეტრზე (₾)</label>
+        <label>ნაგულისხმევი ფასი 1 მეტრზე (₾)</label>
         <input id="setCustomRate" type="number" inputmode="numeric" placeholder="50" />
       </div>
       <div class="saverow">
@@ -357,11 +354,11 @@
   var state=load(LS_STATE,null);
   var today=isoToday();
   if(!state || state.date!==today){
-    state={date:today, asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, custom:0, adjust:0, note:""};
+    state={date:today, asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, customSegs:[{m:"",p:String(settings.customRate||"")}], adjust:0, note:""};
   }
   if(!state.asphalt || !state.asphalt.length) state.asphalt=[{m:"",p:lastPrice()}];
   if(typeof state.adjust!=="number") state.adjust=0;
-  if(typeof state.custom!=="number") state.custom=0;
+  if(!Array.isArray(state.customSegs) || !state.customSegs.length) state.customSegs=[{m:"",p:String(settings.customRate||"")}];
 
   function saveState(){ try{localStorage.setItem(LS_STATE,JSON.stringify(state));}catch(e){} }
   function saveSettings(){ try{localStorage.setItem(LS_SET,JSON.stringify(settings));}catch(e){} }
@@ -386,11 +383,12 @@
   }
   function helperTotal(){ return state.helper*settings.helperRate; }
   function carTotal(){ return state.carload*settings.carRate; }
-  function customTotal(){ return settings.customName ? state.custom*settings.customRate : 0; }
+  function customTotal(){ if(!settings.customName) return 0; var t=0; state.customSegs.forEach(function(s){ var m=parseFloat(s.m),p=parseFloat(s.p); if(m>0&&p>0) t+=m*p; }); return t; }
   function grandTotal(){ return asphaltTotal()+helperTotal()+carTotal()+customTotal()+(state.adjust||0); }
   function hasContent(){
     var anyA=false; state.asphalt.forEach(function(s){ if(parseFloat(s.m)>0&&parseFloat(s.p)>0) anyA=true; });
-    return anyA || state.helper>0 || state.carload>0 || (!!settings.customName && state.custom>0) || (state.adjust||0)!==0;
+    var anyC=false; if(settings.customName) state.customSegs.forEach(function(s){ if(parseFloat(s.m)>0&&parseFloat(s.p)>0) anyC=true; });
+    return anyA || state.helper>0 || state.carload>0 || anyC || (state.adjust||0)!==0;
   }
 
   // ---- render ----
@@ -424,14 +422,48 @@
     });
   }
 
-  function refresh(rerenderAsphalt){
-    if(rerenderAsphalt) renderAsphalt();
+  // custom service — same UI/logic as asphalt (meters × price/m, multiple segments)
+  var csegs=document.getElementById("csegs");
+  function renderCustom(){
+    csegs.innerHTML="";
+    state.customSegs.forEach(function(s,i){
+      var row=document.createElement("div");
+      var m=parseFloat(s.m), p=parseFloat(s.p);
+      var sub=(m>0&&p>0)?(m*p):0;
+      row.className="aseg";
+      row.innerHTML=
+        '<div class="fld"><label>მეტრი</label><input type="number" inputmode="decimal" placeholder="0" data-cm="'+i+'" value="'+(s.m||"")+'"></div>'+
+        '<div class="fld"><label>ფასი/მ (₾)</label><input type="number" inputmode="decimal" placeholder="0" data-cp="'+i+'" value="'+(s.p||"")+'"></div>'+
+        (state.customSegs.length>1?'<button class="rm" data-crm="'+i+'">✕</button>':'<div style="width:0"></div>');
+      csegs.appendChild(row);
+      var sumEl=document.createElement("div"); sumEl.className="segsum";
+      sumEl.textContent= sub>0 ? ("= "+fmt(sub)+" ₾") : "";
+      csegs.appendChild(sumEl);
+    });
+    csegs.querySelectorAll("input[data-cm]").forEach(function(el){
+      el.addEventListener("input",function(){ state.customSegs[+el.dataset.cm].m=el.value; refresh(false); });
+    });
+    csegs.querySelectorAll("input[data-cp]").forEach(function(el){
+      el.addEventListener("input",function(){ state.customSegs[+el.dataset.cp].p=el.value; refresh(false); });
+    });
+    csegs.querySelectorAll("[data-crm]").forEach(function(el){
+      el.addEventListener("click",function(){ state.customSegs.splice(+el.dataset.crm,1); refresh(true); });
+    });
+  }
+
+  function refresh(rerenderLists){
+    if(rerenderLists){ renderAsphalt(); renderCustom(); }
     else {
       // update only seg sums without losing focus
       var sums=asegs.querySelectorAll(".segsum");
       state.asphalt.forEach(function(s,i){
         var m=parseFloat(s.m),p=parseFloat(s.p),sub=(m>0&&p>0)?m*p:0;
         if(sums[i]) sums[i].textContent= sub>0?("= "+fmt(sub)+" ₾"):"";
+      });
+      var csums=csegs.querySelectorAll(".segsum");
+      state.customSegs.forEach(function(s,i){
+        var m=parseFloat(s.m),p=parseFloat(s.p),sub=(m>0&&p>0)?m*p:0;
+        if(csums[i]) csums[i].textContent= sub>0?("= "+fmt(sub)+" ₾"):"";
       });
     }
     document.getElementById("helperN").textContent=state.helper;
@@ -441,8 +473,6 @@
     document.getElementById("helperSum").textContent=fmt(helperTotal())+" ₾";
     document.getElementById("carloadSum").textContent=fmt(carTotal())+" ₾";
     document.getElementById("customTitle").textContent=settings.customName||"სხვა მომსახურება";
-    document.getElementById("customRateLbl").textContent="× "+fmt(settings.customRate)+" ₾/მ";
-    document.getElementById("customSum").textContent=fmt(customTotal())+" ₾";
     document.getElementById("customCard").style.display=settings.customName?"":"none";
     var a=state.adjust||0;
     var adjSumEl=document.getElementById("adjSum");
@@ -475,16 +505,18 @@
   document.getElementById("adjInc").addEventListener("click",function(){ state.adjust=(parseFloat(adjInput.value)||0)+10; adjInput.value=state.adjust; refresh(false); });
   document.getElementById("adjDec").addEventListener("click",function(){ state.adjust=(parseFloat(adjInput.value)||0)-10; adjInput.value=state.adjust; refresh(false); });
 
-  // custom service — meters input (× price-per-meter from settings)
-  document.getElementById("customM").addEventListener("input",function(e){ state.custom=parseFloat(e.target.value)||0; refresh(false); });
+  // custom service — add another segment (default price = last used or settings default)
+  document.getElementById("addCseg").addEventListener("click",function(){
+    var lp=""; state.customSegs.forEach(function(s){ if(parseFloat(s.p)>0) lp=s.p; });
+    state.customSegs.push({m:"",p:lp||String(settings.customRate||"")}); refresh(true);
+  });
 
   // clear
   document.getElementById("clearBtn").addEventListener("click",function(){
     if(confirm("დღის მონაცემების გასუფთავება?")){
-      state={date:isoToday(), asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, custom:0, adjust:0, note:""};
+      state={date:isoToday(), asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, customSegs:[{m:"",p:String(settings.customRate||"")}], adjust:0, note:""};
       document.getElementById("note").value="";
       document.getElementById("adjInput").value="0";
-      document.getElementById("customM").value="";
       refresh(true);
     }
   });
@@ -561,7 +593,7 @@
     state.asphalt.forEach(function(s){ var m=parseFloat(s.m),p=parseFloat(s.p); if(m>0&&p>0) aoa.push(["ასფალტის გადაჭრა", fmt(m)+" მ × "+fmt(p)+" ₾", m*p]); });
     if(state.helper>0) aoa.push(["დამხმარე მუშა", state.helper+" × "+fmt(settings.helperRate)+" ₾", helperTotal()]);
     if(state.carload>0) aoa.push(["მანქანის დატვირთვა", state.carload+" × "+fmt(settings.carRate)+" ₾", carTotal()]);
-    if(state.custom>0 && settings.customName) aoa.push([settings.customName, fmt(state.custom)+" მ × "+fmt(settings.customRate)+" ₾", customTotal()]);
+    if(settings.customName) state.customSegs.forEach(function(s){ var m=parseFloat(s.m),p=parseFloat(s.p); if(m>0&&p>0) aoa.push([settings.customName, fmt(m)+" მ × "+fmt(p)+" ₾", m*p]); });
     if(state.adjust>0) aoa.push(["დამატებითი","", state.adjust]);
     else if(state.adjust<0) aoa.push(["გამოკლება","", state.adjust]);
     if(state.note && state.note.trim()) aoa.push(["შენიშვნა", state.note.trim()]);
@@ -652,8 +684,8 @@
   document.getElementById("dateLbl").textContent=displayDate(state.date);
   document.getElementById("note").value=state.note||"";
   document.getElementById("adjInput").value=String(state.adjust||0);
-  document.getElementById("customM").value=state.custom>0?String(state.custom):"";
   renderAsphalt();
+  renderCustom();
   refresh(false);
 })();
 </script>
