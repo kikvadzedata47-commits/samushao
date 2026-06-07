@@ -175,13 +175,28 @@
   .monthtotal{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;color:var(--muted);margin:8px 0 14px;}
   .monthtotal b{font-size:24px;color:#fff;font-weight:800;}
   .empty{color:var(--muted);text-align:center;padding:20px;font-size:14px;}
+  .datectrl{display:flex;align-items:center;gap:8px;margin-top:5px;}
+  .datepick{
+    background:var(--card2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:6px 10px;font-size:14px;font-family:inherit;
+    color-scheme:dark;outline:none;
+  }
+  .datepick:focus{border-color:var(--accent);}
+  .todaybtn{
+    background:transparent;border:1px solid var(--line);color:var(--muted);
+    border-radius:10px;padding:6px 12px;font-size:13px;font-family:inherit;cursor:pointer;
+  }
+  .todaybtn.hidden{display:none;}
 </style>
 </head>
 <body>
   <header>
     <div>
       <div class="title">📋 სამუშაო ჟურნალი</div>
-      <div class="date" id="dateLbl">—</div>
+      <div class="datectrl">
+        <input type="date" id="datePick" class="datepick" />
+        <button id="todayBtn" class="todaybtn hidden">↩ დღეს</button>
+      </div>
     </div>
     <button class="gear" id="gearBtn" aria-label="პარამეტრები">⚙️</button>
   </header>
@@ -320,7 +335,7 @@
 <script>
 (function(){
   "use strict";
-  var LS_STATE="samushao_state", LS_SET="samushao_settings", LS_LASTP="samushao_lastprice", LS_HIST="samushao_history";
+  var LS_STATE="samushao_state", LS_SET="samushao_settings", LS_LASTP="samushao_lastprice", LS_HIST="samushao_history", LS_ENTRIES="samushao_entries";
 
   function isoToday(){
     var d=new Date();
@@ -350,17 +365,33 @@
   if(typeof settings.customName!=="string") settings.customName="სატკეპნი";
   if(typeof settings.customRate!=="number") settings.customRate=parseFloat(settings.customRate)||50;
 
-  // state (reset on a new day)
-  var state=load(LS_STATE,null);
-  var today=isoToday();
-  if(!state || state.date!==today){
-    state={date:today, asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, customSegs:[{m:"",p:String(settings.customRate||"")}], adjust:0, note:""};
-  }
-  if(!state.asphalt || !state.asphalt.length) state.asphalt=[{m:"",p:lastPrice()}];
-  if(typeof state.adjust!=="number") state.adjust=0;
-  if(!Array.isArray(state.customSegs) || !state.customSegs.length) state.customSegs=[{m:"",p:String(settings.customRate||"")}];
+  // per-date entries: { "YYYY-MM-DD": {date,asphalt,helper,carload,customSegs,adjust,note} }
+  var entries=load(LS_ENTRIES,{}); if(!entries||typeof entries!=="object") entries={};
+  // migrate an older single working-day state into entries so nothing is lost on update
+  var _old=load(LS_STATE,null);
+  if(_old && _old.date && !entries[_old.date]) entries[_old.date]=_old;
 
-  function saveState(){ try{localStorage.setItem(LS_STATE,JSON.stringify(state));}catch(e){} }
+  function blankEntry(date){ return {date:date, asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, customSegs:[{m:"",p:String(settings.customRate||"")}], adjust:0, note:""}; }
+  function normEntry(e,date){
+    e.date=date;
+    if(!Array.isArray(e.asphalt)||!e.asphalt.length) e.asphalt=[{m:"",p:lastPrice()}];
+    if(!Array.isArray(e.customSegs)||!e.customSegs.length) e.customSegs=[{m:"",p:String(settings.customRate||"")}];
+    if(typeof e.helper!=="number") e.helper=0;
+    if(typeof e.carload!=="number") e.carload=0;
+    if(typeof e.adjust!=="number") e.adjust=0;
+    if(typeof e.note!=="string") e.note="";
+    return e;
+  }
+  function loadEntry(date){ return entries[date] ? normEntry(entries[date],date) : blankEntry(date); }
+
+  var today=isoToday();
+  var selDate=today;
+  var state=loadEntry(selDate);
+
+  function saveState(){
+    entries[state.date]=state;
+    try{localStorage.setItem(LS_ENTRIES,JSON.stringify(entries));}catch(e){}
+  }
   function saveSettings(){ try{localStorage.setItem(LS_SET,JSON.stringify(settings));}catch(e){} }
 
   // monthly history: { "YYYY-MM-DD": dayTotal }
@@ -511,15 +542,34 @@
     state.customSegs.push({m:"",p:lp||String(settings.customRate||"")}); refresh(true);
   });
 
-  // clear
+  // clear (resets the currently selected day)
   document.getElementById("clearBtn").addEventListener("click",function(){
-    if(confirm("დღის მონაცემების გასუფთავება?")){
-      state={date:isoToday(), asphalt:[{m:"",p:lastPrice()}], helper:0, carload:0, customSegs:[{m:"",p:String(settings.customRate||"")}], adjust:0, note:""};
+    if(confirm("ამ დღის ("+displayDate(state.date)+") მონაცემების გასუფთავება?")){
+      state=blankEntry(state.date);
       document.getElementById("note").value="";
       document.getElementById("adjInput").value="0";
       refresh(true);
     }
   });
+
+  // ---- date picker (choose which day's report) ----
+  function refreshDateUI(){
+    document.getElementById("datePick").value=state.date;
+    var tb=document.getElementById("todayBtn");
+    if(state.date===isoToday()) tb.classList.add("hidden"); else tb.classList.remove("hidden");
+  }
+  function switchDate(newDate){
+    if(!newDate || newDate===state.date) return;
+    saveState();                 // persist the day we're leaving
+    selDate=newDate;
+    state=loadEntry(newDate);
+    document.getElementById("note").value=state.note||"";
+    document.getElementById("adjInput").value=String(state.adjust||0);
+    refreshDateUI();
+    refresh(true);               // rerender lists + totals for the new day
+  }
+  document.getElementById("datePick").addEventListener("change",function(e){ switchDate(e.target.value); });
+  document.getElementById("todayBtn").addEventListener("click",function(){ switchDate(isoToday()); });
 
   // ---- report + WhatsApp ----
   function buildReport(){
@@ -681,7 +731,8 @@
   });
 
   // ---- init ----
-  document.getElementById("dateLbl").textContent=displayDate(state.date);
+  document.getElementById("datePick").max=isoToday();
+  refreshDateUI();
   document.getElementById("note").value=state.note||"";
   document.getElementById("adjInput").value=String(state.adjust||0);
   renderAsphalt();
